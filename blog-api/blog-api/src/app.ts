@@ -1,3 +1,4 @@
+
 import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
@@ -13,11 +14,33 @@ export function createApp(): Express {
 
   app.disable('x-powered-by');
   app.use(helmet());
+
+  const configuredOrigins =
+    env.CORS_ORIGIN === '*'
+      ? ['*']
+      : env.CORS_ORIGIN.split(',').map((origin) => origin.trim());
+
   app.use(
     cors({
-      origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',').map((o) => o.trim()),
+      origin: (origin, callback) => {
+        if (
+          !origin ||
+          configuredOrigins.includes('*') ||
+          configuredOrigins.includes(origin)
+        ) {
+          return callback(null, true);
+        }
+
+        return callback(
+          new Error(`Origin not allowed by CORS: ${origin}`),
+        );
+      },
+      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      optionsSuccessStatus: 204,
     }),
   );
+
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/health', (_req, res) => {
